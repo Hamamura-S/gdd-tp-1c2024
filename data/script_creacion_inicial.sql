@@ -802,6 +802,39 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE GESTIONANDING.TICKET
+AS
+BEGIN
+    INSERT INTO GESTIONANDING.TICKET (
+        TICKET_NUMERO,     --PK                
+        TICKET_FECHA_HORA,                 
+        --TICKET_CAJA,                       
+        --TICKET_EMPLEADO,                   
+        TICKET_TIPO_COMPROBANTE,           
+        TICKET_SUBTOTAL_PRODUCTOS,         
+        TICKET_TOTAL_DESCUENTO_PROMOCIONES,
+        TICKET_TOTAL_DESCUENTO_APLICADO_MP,
+        TICKET_TOTAL_TICKET              
+    )
+    SELECT distinct
+        TICKET_NUMERO,
+        TICKET_FECHA_HORA,
+        --FK DE LA CAJA
+        --FK DEL EMPLEADO
+        TICKET_TIPO_COMPROBANTE,
+        TICKET_SUBTOTAL_PRODUCTOS,
+        TICKET_TOTAL_DESCUENTO_APLICADO,
+        TICKET_TOTAL_DESCUENTO_APLICADO_MP,
+        TICKET_TOTAL_ENVIO,
+        TICKET_TOTAL_TICKET
+    FROM gd_esquema.Maestra
+    /*
+    17.069 tickets donde no se repite el numero. En la tabla todos
+    se repiten por cada item que tenga.
+    */
+END
+GO
+
 -- Fin crear Procedimientos
 
 
