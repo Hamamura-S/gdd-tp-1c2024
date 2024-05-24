@@ -830,7 +830,33 @@ BEGIN
     FROM gd_esquema.Maestra
     /*
     17.069 tickets donde no se repite el numero. En la tabla todos
-    se repiten por cada item que tenga.
+    se repiten por cada item que tenga. No hay nulos.
+    */
+END
+GO
+
+CREATE PROCEDURE GESTIONANDING.MIGRAR_TICKET_DET
+AS
+BEGIN
+    INSERT INTO GESTIONANDING.TICKET_DET(
+        --TICKET_DET_PRODUCTO,   -- PK y FK
+        TICKET_DET_TICKET,     -- PK y FK
+        TICKET_DET_CANTIDAD,
+        TICKET_DET_PRECIO_UNITARIO,
+        TICKET_DET_TOTAL        
+    )
+    SELECT distinct
+        --subselect a producto_cod
+        TICKET_NUMERO,
+        TICKET_DET_CANTIDAD,
+        TICKET_DET_PRECIO,
+        TICKET_DET_TOTAL
+    FROM gd_esquema.Maestra 
+    WHERE TICKET_DET_CANTIDAD is not null --al azar
+    /*
+    No hay detalles parcialmente completos. Solo uno con todos sus campos
+    NULL repetido muchas veces.
+    Un mismo DETALLE se puede repetir solo por tener varias promociones.
     */
 END
 GO
