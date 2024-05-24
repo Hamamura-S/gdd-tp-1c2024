@@ -770,6 +770,38 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE GESTIONANDING.MIGRAR_ENVIO
+AS
+BEGIN
+    -- PK es ENVIO_NRO, autoincremental
+    INSERT INTO GESTIONANDING.ENVIO (
+        --ENVIO_TICKET,
+        ENVIO_COSTO,
+        ENVIO_FECHA_PROGRAMADA,
+        ENVIO_HORA_INICIO,
+        ENVIO_HORA_FIN,
+        --ENVIO_CLIENTE,
+        ENVIO_ESTADO,
+        ENVIO_FECHA_ENTREGA
+    )
+    SELECT
+        --FK DEL TICKET
+        ENVIO_COSTO,
+        ENVIO_FECHA_PROGRAMADA,
+        ENVIO_HORA_INICIO,   
+        ENVIO_HORA_FIN,
+        --FK DEL CLIENTE
+        ENVIO_ESTADO,
+        ENVIO_FECHA_ENTREGA
+    FROM gd_esquema.Maestra
+    WHERE ENVIO_COSTO IS NOT NULL   --campo al azar
+    /*
+    no hay envios con campos nulos ni envios que se repitan.
+    solo se repite un registro con todas las columnas null.
+    */
+END
+GO
+
 -- Fin crear Procedimientos
 
 
