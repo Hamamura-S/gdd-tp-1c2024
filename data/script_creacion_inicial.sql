@@ -857,9 +857,33 @@ BEGIN
     No hay detalles parcialmente completos. Solo uno con todos sus campos
     NULL repetido muchas veces.
     Un mismo DETALLE se puede repetir solo por tener varias promociones.
+    Ningun ticket tiene varios detalles con misma cant, precio y total.
     */
 END
 GO
+
+CREATE PROCEDURE GESTIONANDING.MIGRAR_PROMOCION_APLICADA
+AS
+BEGIN
+    INSERT INTO GESTIONANDING.PROMOCION_APLICADA(
+        PA_PROMOCION,  --FK a PROMOCION       
+        PA_PROD,      --FK A prod en detalle        
+        PA_TICKET,    --FK a ticket en detalle         
+        PA_APLICADA_DESCUENTO
+    )
+    SELECT distinct
+        PROMO_CODIGO,
+        CAST(SUBSTRING(PRODUCTO_NOMBRE, CHARINDEX(':', PRODUCTO_NOMBRE) + 1, LEN(PRODUCTO_NOMBRE)) AS BIGINT),
+        TICKET_NUMERO,
+        PROMO_APLICADA_DESCUENTO
+    FROM gd_esquema.Maestra
+    WHERE PROMO_CODIGO is not null
+    /*
+    ticket_numero nunca es null
+    */
+END
+GO
+
 
 -- Fin crear Procedimientos
 
