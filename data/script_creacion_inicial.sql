@@ -920,6 +920,7 @@ BEGIN
         t.TICKET_NUMERO = m.TICKET_NUMERO
         AND s.SUCURSAL_NOMBRE = m.SUCURSAL_NOMBRE
         AND t.TICKET_SUCURSAL = s.SUCURSAL_ID
+        AND t.TICKET_CAJA_NUMERO=m.CAJA_NUMERO
     JOIN GESTIONANDING.CLIENTE c ON
         c.CLIENTE_DNI = m.CLIENTE_DNI
         AND c.CLIENTE_NOMBRE = m.CLIENTE_NOMBRE
@@ -1406,7 +1407,7 @@ BEGIN
         m1.PAGO_FECHA,
         m1.PAGO_IMPORTE,
         mp.MP_ID,
-        t.TICKET_NUMERO, --REVISAR CON SANTI
+        t.TICKET_ID, --REVISAR CON SANTI    --nueva PK de ticket
         dp.DETPAG_ID
     FROM 
         gd_esquema.Maestra m1
