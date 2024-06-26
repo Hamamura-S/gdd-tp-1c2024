@@ -84,14 +84,14 @@ GO
 
 CREATE TABLE BI_GESTIONANDING.DIM_RANGO_ETARIO
 (
-    id          NUMERIC(18, 0) IDENTITY (1, 1) PRIMARY KEY,
+    id          INTEGER IDENTITY (1, 1) PRIMARY KEY,
     descripcion VARCHAR(50)
 )
 GO
 
 CREATE TABLE BI_GESTIONANDING.DIM_MEDIO_PAGO
 (
-    
+    id
 )
 GO
 
@@ -103,10 +103,10 @@ GO
 
 CREATE TABLE BI_GESTIONANDING.DIM_TIEMPO
 (
-    id           NUMERIC(18, 0) IDENTITY (1, 1) PRIMARY KEY,
-    anio         NUMERIC(18, 0),
-    cuatrimestre NUMERIC(18, 0),
-    mes          NUMERIC(18, 0)
+    id           INTEGER IDENTITY (1, 1) PRIMARY KEY,
+    anio         INTEGER,
+    cuatrimestre INTEGER,
+    mes          INTEGER
 )
 GO
 
