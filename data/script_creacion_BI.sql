@@ -51,7 +51,7 @@ CREATE TABLE BI_GESTIONANDING.DIM_UBICACION_CLIE
 (
     id         INTEGER IDENTITY (1, 1) PRIMARY KEY,
     provincia  VARCHAR(50),
-    localidad  VARCHAR(50),
+    localidad  VARCHAR(50)
 )
 GO
 
@@ -91,13 +91,16 @@ GO
 
 CREATE TABLE BI_GESTIONANDING.DIM_MEDIO_PAGO
 (
-    id
+    id          INTEGER IDENTITY (1, 1) PRIMARY KEY,
+    descripcion VARCHAR(50)
 )
 GO
 
 CREATE TABLE BI_GESTIONANDING.DIM_UBICACION_SUCU
 (
-    
+    id         INTEGER IDENTITY (1, 1) PRIMARY KEY,
+    provincia  VARCHAR(50),
+    localidad  VARCHAR(50)
 )
 GO
 
@@ -113,25 +116,47 @@ GO
 
 CREATE TABLE BI_GESTIONANDING.BI_FACT_ENVIO
 (
-    
+    sucursal_id             INTEGER PRIMARY KEY,
+    rango_etario_id         INTEGER PRIMARY KEY,
+    ubicacion_clie_id       INTEGER PRIMARY KEY,
+    tiempo_id               INTEGER PRIMARY KEY,
+    cant_envios             INTEGER,
+    cant_envios_en_horario  INTEGER,
+    sum_costo_de_envio      DECIMAL(12, 2) 
 )
 GO
 
 CREATE TABLE BI_GESTIONANDING.BI_FACT_PAGO
 (
-    
+    ubicacion_sucu_id       INTEGER PRIMARY KEY,
+    tiempo_id               INTEGER PRIMARY KEY,
+    rango_etario_id         INTEGER PRIMARY KEY,
+    cuotas_id               INTEGER PRIMARY KEY,
+    medio_pago_id           INTEGER PRIMARY KEY,
+    sum_importe             DECIMAL(12, 2)
 )
 GO
 
 CREATE TABLE BI_GESTIONANDING.BI_FACT_VENTAS
 (
-    
+    tiempo_id               INTEGER PRIMARY KEY,
+    ubicacion_sucu_id       INTEGER PRIMARY KEY,
+    turno_id                INTEGER PRIMARY KEY,
+    tipo_caja_id            INTEGER PRIMARY KEY,
+    rango_etario_id         INTEGER PRIMARY KEY,
+    cant_ventas             INTEGER,
+    sum_articulo            INTEGER
 )
 GO
 
 CREATE TABLE BI_GESTIONANDING.BI_FACT_DESCUENTO
 (
-    
+    tiempo_id               INTEGER PRIMARY KEY,
+    medio_pago_id           INTEGER PRIMARY KEY,
+    categoria_id            INTEGER PRIMARY KEY,
+    sum_total_ticket        DECIMAL(12, 2),
+    sum_promo_producto      DECIMAL(12, 2),
+    sum_descuento_mp        DECIMAL(12, 2)
 )
 GO
 
