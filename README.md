@@ -7,10 +7,7 @@ El
 El
 <a href="https://drive.google.com/file/d/1fCIR3PL6D6CqcjAk5FYN6Ob-Fxv4xLff/view?usp=sharing">DER</a> se exporta como jpeg en el directorio raíz al entregar.
 
-El razonamiento de 
-<a href="https://docs.google.com/document/d/1_C_nNaKEWdENVLhSR-cLFuwXid0vxb3LPdeO9haa31w/edit?usp=sharing">algunos procedures</a> que tal vez nos sirvan. No se incluye en el documento de estrategia.
-
-Curso: K3051/K3151  
+Curso: K3151  
 Email de contacto: hamamurasantiago@frba.utn.edu.ar 
 
 | Integrantes        | Legajo    |

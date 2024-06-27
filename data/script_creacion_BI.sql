@@ -116,6 +116,10 @@ IF OBJECT_ID('BI_GESTIONANDING.FX_CALCULAR_RANGO_ETARIO', 'FN') IS NOT NULL
     DROP FUNCTION BI_GESTIONANDING.FX_CALCULAR_RANGO_ETARIO
 GO
 
+IF OBJECT_ID('BI_GESTIONANDING.FX_OBTENER_TURNO', 'FN') IS NOT NULL
+    DROP FUNCTION BI_GESTIONANDING.FX_OBTENER_TURNO
+GO
+
 -- Fin DROP Functions
 
 -- Inicio DROP Procedures
@@ -288,6 +292,26 @@ BEGIN
     RETURN @rangoId
 END
 GO
+
+CREATE FUNCTION BI_GESTIONANDING.FX_OBTENER_TURNO(@hora DATETIME)
+    RETURNS NUMERIC(18, 0)
+AS
+BEGIN
+    DECLARE @turnoId NUMERIC(18, 0)
+    DECLARE @horaOnly TIME = CAST(@hora AS TIME)
+    -- Asignar valores a turnoId basado en la hora
+    IF @horaOnly BETWEEN '08:00:00' AND '11:59:59'
+        SET @turnoId = 1
+    ELSE IF @horaOnly BETWEEN '12:00:00' AND '15:59:59'
+        SET @turnoId = 2
+    ELSE IF @horaOnly BETWEEN '16:00:00' AND '19:59:59'
+        SET @turnoId = 3
+    ELSE
+        SET @turnoId = 0 -- Valor predeterminado si no se encuentra un turno
+    RETURN @turnoId
+END
+GO
+
 
 -- Fin crear Functions
 
