@@ -322,11 +322,150 @@ GO
 INSERT INTO BI_GESTIONANDING.DIM_CUOTAS (cuotas_id)
     SELECT distinct DETPAG_CUOTAS
     FROM GESTIONANDING.DETALLE_PAGO
+GO
 
+-- migrar DIM_TURNO
+INSERT INTO BI_GESTIONANDING.DIM_TURNO (descripcion)
+    VALUES
+        ('08:00 - 12:00'),
+        ('12:00 - 16:00'),
+        ('16:00 - 20:00')
+GO
 
--- Inicio crear Procedures
+-- migrar DIM_TIPO_CAJA
+INSERT INTO BI_GESTIONANDING.DIM_TIPO_CAJA (descripcion)
+    SELECT CAJA_TIPO_DESCRIPCION
+    FROM GESTIONANDING.CAJA_TIPO
+GO
+
+-- migrar DIM_CATE_PROD
+INSERT INTO BI_GESTIONANDING.DIM_CATE_PROD (descripcion)
+    SELECT distinct CAT_DESCR
+    FROM GESTIONANDING.CATEGORIA
+GO
+
+-- migrar DIM_RANGO_ETARIO
+INSERT INTO BI_GESTIONANDING.DIM_RANGO_ETARIO (descripcion)
+    VALUES
+        ('<25'),
+        ('25-35'),
+        ('35-50'),
+        ('>50')
+GO
+
+-- migrar DIM_MEDIO_PAGO
+INSERT INTO BI_GESTIONANDING.DIM_MEDIO_PAGO (descripcion)
+    SELECT distinct MP_DESCRIPCION
+    FROM GESTIONANDING.MEDIO_PAGO
+GO
+
+-- migrar DIM_UBICACION_SUCU
+INSERT INTO BI_GESTIONANDING.DIM_UBICACION_SUCU (provincia, localidad)
+    SELECT distinct DIRE_DOMICILIO, DIRE_LOCALIDAD
+    FROM GESTIONANDING.SUCURSAL
+    JOIN GESTIONANDING.DIRECCION ON DIRE_ID = SUCURSAL_DIRECCION
+GO
+
+-- migrar DIM_TIEMPO
+--todas las facturas son del 2024 en adelante.
+INSERT INTO BI_GESTIONANDING.DIM_TIEMPO (anio, cuatrimestre, mes)
+VALUES (2024, 01, 01),
+       (2024, 01, 02),
+       (2024, 01, 03),
+       (2024, 01, 04),
+       (2024, 02, 05),
+       (2024, 02, 06),
+       (2024, 02, 07),
+       (2024, 02, 08),
+       (2024, 03, 09),
+       (2024, 03, 10),
+       (2024, 03, 11),
+       (2024, 03, 12),
+       (2025, 01, 01),
+       (2025, 01, 02),
+       (2025, 01, 03),
+       (2025, 01, 04),
+       (2025, 02, 05),
+       (2025, 02, 06),
+       (2025, 02, 07),
+       (2025, 02, 08),
+       (2025, 03, 09),
+       (2025, 03, 10),
+       (2025, 03, 11),
+       (2025, 03, 12),
+       (2026, 01, 01),
+       (2026, 01, 02),
+       (2026, 01, 03),
+       (2026, 01, 04),
+       (2026, 02, 05),
+       (2026, 02, 06),
+       (2026, 02, 07),
+       (2026, 02, 08),
+       (2026, 03, 09),
+       (2026, 03, 10),
+       (2026, 03, 11),
+       (2026, 03, 12),
+       (2027, 01, 01),
+       (2027, 01, 02),
+       (2027, 01, 03),
+       (2027, 01, 04),
+       (2027, 02, 05),
+       (2027, 02, 06),
+       (2027, 02, 07),
+       (2027, 02, 08),
+       (2027, 03, 09),
+       (2027, 03, 10),
+       (2027, 03, 11),
+       (2027, 03, 12),
+       (2028, 01, 01),
+       (2028, 01, 02),
+       (2028, 01, 03),
+       (2028, 01, 04),
+       (2028, 02, 05),
+       (2028, 02, 06),
+       (2028, 02, 07),
+       (2028, 02, 08),
+       (2028, 03, 09),
+       (2028, 03, 10),
+       (2028, 03, 11),
+       (2028, 03, 12),
+       (2029, 01, 01),
+       (2029, 01, 02),
+       (2029, 01, 03),
+       (2029, 01, 04),
+       (2029, 02, 05),
+       (2029, 02, 06),
+       (2029, 02, 07),
+       (2029, 02, 08),
+       (2029, 03, 09),
+       (2029, 03, 10),
+       (2029, 03, 11),
+       (2029, 03, 12),
+       (2030, 01, 01),
+       (2030, 01, 02)
+GO
+
+CREATE PROCEDURE BI_GESTIONANDING.MIGRAR_BI_FACT_ENVIO
+AS
+BEGIN
+    INSERT INTO BI_GESTIONANDING.BI_FACT_ENVIO (
+        envio_sucursal, 
+        envio_rango_etario, 
+        envio_ubi_clie, 
+        envio_tiempo, 
+        cant_envios, 
+        cant_envios_en_horario, 
+        sum_costo_de_envio
+        )
+        SELECT 
+        FROM 
+END
+GO
+
+-- Fin crear Procedures
 
 -- Ejecucion de Procedures
+
 -- Fin ejecucion de Procedures
 
 BEGIN TRANSACTION
