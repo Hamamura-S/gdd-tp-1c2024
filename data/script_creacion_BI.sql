@@ -184,7 +184,7 @@ GO
 
 CREATE TABLE BI_GESTIONANDING.BI_DIM_TIPO_CAJA
 (
-    tipo_caja_id    INTEGER IDENTITY (1, 1) PRIMARY KEY,
+    tipo_caja_id    INTEGER PRIMARY KEY,
     descripcion     VARCHAR(50)
 )
 GO
@@ -324,7 +324,7 @@ BEGIN
     ELSE IF @horaOnly BETWEEN '16:00:00' AND '19:59:59'
         SET @turnoId = 3
     ELSE
-        SET @turnoId = 0 -- Valor predeterminado si no se encuentra un turno
+        SET @turnoId = 4
     RETURN @turnoId
 END
 GO
@@ -393,12 +393,13 @@ INSERT INTO BI_GESTIONANDING.BI_DIM_TURNO (descripcion)
     VALUES
         ('08:00 - 12:00'),
         ('12:00 - 16:00'),
-        ('16:00 - 20:00')
+        ('16:00 - 20:00'),
+        ('N/A')
 GO
 
 -- migrar BI_DIM_TIPO_CAJA
-INSERT INTO BI_GESTIONANDING.BI_DIM_TIPO_CAJA (descripcion)
-    SELECT CAJA_TIPO_DESCRIPCION
+INSERT INTO BI_GESTIONANDING.BI_DIM_TIPO_CAJA (tipo_caja_id, descripcion)
+    SELECT CAJA_TIPO_ID, CAJA_TIPO_DESCRIPCION
     FROM GESTIONANDING.CAJA_TIPO
 GO
 
@@ -571,7 +572,7 @@ BEGIN
     INSERT INTO BI_FACT_PAGO (pago_ubi_sucu, pago_tiempo, pago_rango_etario,
     pago_cuotas, pago_medio_pago, sum_importe)
     SELECT
-        dimus.ubicacion_sucu_id,
+    dimus.ubicacion_sucu_id,
         dimt.tiempo_id,
         dimre.rango_etario_id,
         DETPAG_CUOTAS,
@@ -584,8 +585,8 @@ BEGIN
     JOIN GESTIONANDING.LOCALIDAD ON DIRE_LOCALIDAD = LOCALIDAD_ID
     JOIN GESTIONANDING.DETALLE_PAGO ON DETPAG_ID = PAGO_DETALLE
     LEFT JOIN GESTIONANDING.CLIENTE ON DETPAG_CLIE = CLIENTE_ID
-    JOIN BI_GESTIONANDING.BI_DIM_UBICACION_SUCU dimus
-        ON LOCALIDAD_ID = dimus.localidad_cd AND LOCALIDAD_PROVINCIA = dimus.provincia_cd
+    JOIN BI_GESTIONANDING.BI_DIM_UBICACION_SUCUdimus
+        ON LOCALIDAD_ID =dimus.localidad_cd AND LOCALIDAD_PROVINCIA =dimus.provincia_cd
     JOIN BI_GESTIONANDING.BI_DIM_TIEMPO dimt ON
             YEAR(PAGO_FECHA) = dimt.anio AND 
             BI_GESTIONANDING.FX_OBTENER_CUATRIMESTRE(PAGO_FECHA) = dimt.cuatrimestre AND 
@@ -595,7 +596,7 @@ BEGIN
                     DATEDIFF(YEAR, CLIENTE.CLIENTE_FECHA_NACIMIENTO, GETDATE())
                 ) = dimre.rango_etario_id
     GROUP BY 
-        dimus.ubicacion_sucu_id,
+    dimus.ubicacion_sucu_id,
         dimt.tiempo_id,
         dimre.rango_etario_id,
         DETPAG_CUOTAS,
@@ -603,10 +604,115 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE BI_GESTIONANDING.MIGRAR_BI_FACT_VENTAS
+AS
+BEGIN
+    INSERT INTO BI_FACT_VENTAS (
+    venta_tiempo,
+    venta_ubi_sucu,
+    venta_turno,
+    venta_tipo_caja,
+    venta_rango_etario,
+    cant_ventas,
+    sum_articulo,
+    sum_total_ticket
+    )
+    SELECT
+        dimt.tiempo_id,
+        dimus.ubicacion_sucu_id,
+        dimtu.turno_id,
+        CAJA_TIPO,
+        dimre.rango_etario_id,
+        COUNT(*),
+        (
+            SELECT SUM(TICKET_DET_CANTIDAD)
+            FROM GESTIONANDING.TICKET
+            JOIN GESTIONANDING.TICKET_DET ON TICKET_DET_TICKET = TICKET_ID
+            JOIN GESTIONANDING.SUCURSAL ON TICKET_SUCURSAL = SUCURSAL_ID
+            JOIN GESTIONANDING.DIRECCION ON SUCURSAL_DIRECCION = DIRE_ID
+            JOIN GESTIONANDING.LOCALIDAD ON DIRE_LOCALIDAD = LOCALIDAD_ID
+            JOIN GESTIONANDING.CAJA icaja ON TICKET_CAJA_NUMERO = CAJA_NUMERO AND TICKET_SUCURSAL = CAJA_SUCURSAL
+            JOIN GESTIONANDING.EMPLEADO ON TICKET_EMPLEADO = EMPLEADO_LEGAJO
+            JOIN BI_GESTIONANDING.BI_DIM_TIEMPO idimt ON
+                YEAR(TICKET_FECHA_HORA) = idimt.anio AND 
+                BI_GESTIONANDING.FX_OBTENER_CUATRIMESTRE(TICKET_FECHA_HORA) = idimt.cuatrimestre AND 
+                MONTH(TICKET_FECHA_HORA) = idimt.mes
+            JOIN BI_GESTIONANDING.BI_DIM_UBICACION_SUCU idimus
+                ON LOCALIDAD_ID =idimus.localidad_cd AND LOCALIDAD_PROVINCIA =idimus.provincia_cd
+            JOIN BI_GESTIONANDING.BI_DIM_TURNO idimtu ON 
+                BI_GESTIONANDING.FX_OBTENER_TURNO(TICKET_FECHA_HORA) = idimtu.turno_id
+            JOIN BI_GESTIONANDING.BI_DIM_RANGO_ETARIO idimre ON
+                BI_GESTIONANDING.FX_CALCULAR_RANGO_ETARIO(
+                            DATEDIFF(YEAR, EMPLEADO_FECHA_NACIMIENTO, GETDATE())
+                        ) = idimre.rango_etario_id
+            WHERE 
+                        dimt.tiempo_id = idimt.tiempo_id 
+                        AND dimus.ubicacion_sucu_id = idimus.ubicacion_sucu_id 
+                        AND dimtu.turno_id = idimtu.turno_id 
+                        AND CAJA_TIPO = icaja.CAJA_TIPO 
+                        AND dimre.rango_etario_id = dimre.rango_etario_id 
+        ),
+        (
+            SELECT SUM(TICKET_TOTAL_TICKET)
+            FROM GESTIONANDING.TICKET
+            JOIN GESTIONANDING.SUCURSAL ON TICKET_SUCURSAL = SUCURSAL_ID
+            JOIN GESTIONANDING.DIRECCION ON SUCURSAL_DIRECCION = DIRE_ID
+            JOIN GESTIONANDING.LOCALIDAD ON DIRE_LOCALIDAD = LOCALIDAD_ID
+            JOIN GESTIONANDING.CAJA icaja ON TICKET_CAJA_NUMERO = CAJA_NUMERO AND TICKET_SUCURSAL = CAJA_SUCURSAL
+            JOIN GESTIONANDING.EMPLEADO ON TICKET_EMPLEADO = EMPLEADO_LEGAJO
+            JOIN BI_GESTIONANDING.BI_DIM_TIEMPO idimt ON
+                YEAR(TICKET_FECHA_HORA) = idimt.anio AND 
+                BI_GESTIONANDING.FX_OBTENER_CUATRIMESTRE(TICKET_FECHA_HORA) = idimt.cuatrimestre AND 
+                MONTH(TICKET_FECHA_HORA) = idimt.mes
+            JOIN BI_GESTIONANDING.BI_DIM_UBICACION_SUCU idimus
+                ON LOCALIDAD_ID =idimus.localidad_cd AND LOCALIDAD_PROVINCIA =idimus.provincia_cd
+            JOIN BI_GESTIONANDING.BI_DIM_TURNO idimtu ON 
+                BI_GESTIONANDING.FX_OBTENER_TURNO(TICKET_FECHA_HORA) = idimtu.turno_id
+            JOIN BI_GESTIONANDING.BI_DIM_RANGO_ETARIO idimre ON
+                BI_GESTIONANDING.FX_CALCULAR_RANGO_ETARIO(
+                            DATEDIFF(YEAR, EMPLEADO_FECHA_NACIMIENTO, GETDATE())
+                        ) = idimre.rango_etario_id
+            WHERE 
+                        dimt.tiempo_id = idimt.tiempo_id 
+                        AND dimus.ubicacion_sucu_id = idimus.ubicacion_sucu_id 
+                        AND dimtu.turno_id = idimtu.turno_id 
+                        AND CAJA_TIPO = icaja.CAJA_TIPO 
+                        AND dimre.rango_etario_id = dimre.rango_etario_id 
+        )
+    FROM GESTIONANDING.TICKET
+    JOIN GESTIONANDING.SUCURSAL ON TICKET_SUCURSAL = SUCURSAL_ID
+    JOIN GESTIONANDING.DIRECCION ON SUCURSAL_DIRECCION = DIRE_ID
+    JOIN GESTIONANDING.LOCALIDAD ON DIRE_LOCALIDAD = LOCALIDAD_ID
+    JOIN GESTIONANDING.CAJA ON TICKET_CAJA_NUMERO = CAJA_NUMERO AND TICKET_SUCURSAL = CAJA_SUCURSAL
+    JOIN GESTIONANDING.EMPLEADO ON TICKET_EMPLEADO = EMPLEADO_LEGAJO
+    JOIN BI_GESTIONANDING.BI_DIM_TIEMPO dimt ON
+        YEAR(TICKET_FECHA_HORA) = dimt.anio AND 
+        BI_GESTIONANDING.FX_OBTENER_CUATRIMESTRE(TICKET_FECHA_HORA) = dimt.cuatrimestre AND 
+        MONTH(TICKET_FECHA_HORA) = dimt.mes
+    JOIN BI_GESTIONANDING.BI_DIM_UBICACION_SUCU dimus
+        ON LOCALIDAD_ID =dimus.localidad_cd AND LOCALIDAD_PROVINCIA =dimus.provincia_cd
+    JOIN BI_GESTIONANDING.BI_DIM_TURNO dimtu ON 
+        BI_GESTIONANDING.FX_OBTENER_TURNO(TICKET_FECHA_HORA) = dimtu.turno_id
+    JOIN BI_GESTIONANDING.BI_DIM_RANGO_ETARIO dimre ON
+        BI_GESTIONANDING.FX_CALCULAR_RANGO_ETARIO(
+                    DATEDIFF(YEAR, EMPLEADO_FECHA_NACIMIENTO, GETDATE())
+                ) = dimre.rango_etario_id
+    GROUP BY
+        dimt.tiempo_id,
+        dimus.ubicacion_sucu_id,
+        dimtu.turno_id,
+        CAJA_TIPO,
+        dimre.rango_etario_id
+    
+END
+GO
+
+
 -- Fin crear Procedures
 
 -- Ejecucion de Procedures
 EXEC BI_GESTIONANDING.MIGRAR_BI_FACT_ENVIO
+EXEC BI_GESTIONANDING.MIGRAR_BI_FACT_PAGO
 EXEC BI_GESTIONANDING.MIGRAR_BI_FACT_PAGO
 -- Fin ejecucion de Procedures
 
