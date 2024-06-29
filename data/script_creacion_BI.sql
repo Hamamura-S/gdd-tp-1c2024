@@ -190,7 +190,7 @@ GO
 
 CREATE TABLE BI_GESTIONANDING.BI_DIM_CATE_PROD
 (
-    cate_prod_id        INTEGER IDENTITY (1, 1) PRIMARY KEY,
+    cate_prod_id        INTEGER PRIMARY KEY,
     descripcion         VARCHAR(50) 
 )
 GO
@@ -403,8 +403,8 @@ INSERT INTO BI_GESTIONANDING.BI_DIM_TIPO_CAJA (tipo_caja_id, descripcion)
 GO
 
 -- migrar BI_DIM_CATE_PROD
-INSERT INTO BI_GESTIONANDING.BI_DIM_CATE_PROD (descripcion)
-    SELECT CAT_DESCR
+INSERT INTO BI_GESTIONANDING.BI_DIM_CATE_PROD (cate_prod_id, descripcion)
+    SELECT CAT_ID, CAT_DESCR
     FROM GESTIONANDING.CATEGORIA
 GO
 
@@ -595,7 +595,7 @@ BEGIN
                     DATEDIFF(YEAR, CLIENTE.CLIENTE_FECHA_NACIMIENTO, GETDATE())
                 ) = dimre.rango_etario_id
     GROUP BY 
-    dimus.ubicacion_sucu_id,
+        dimus.ubicacion_sucu_id,
         dimt.tiempo_id,
         dimre.rango_etario_id,
         DETPAG_CUOTAS,
@@ -606,13 +606,6 @@ GO
 CREATE PROCEDURE BI_GESTIONANDING.MIGRAR_BI_FACT_VENTAS
 AS
 BEGIN
-    WITH TicketSums AS (
-        SELECT
-            TICKET_DET_TICKET AS ticket_id,
-            SUM(TICKET_DET_CANTIDAD) AS sum_articulo
-        FROM GESTIONANDING.TICKET_DET
-        GROUP BY TICKET_DET_TICKET
-    )
     INSERT INTO BI_FACT_VENTAS (
     venta_tiempo,
     venta_ubi_sucu,
@@ -623,6 +616,9 @@ BEGIN
     sum_articulo,
     sum_total_ticket
     )
+    /*
+    -- esto tiene en cuenta las promociones, descuentos y costos de envio
+    
     SELECT
         dimt.tiempo_id,
         dimus.ubicacion_sucu_id,
@@ -630,10 +626,38 @@ BEGIN
         CAJA_TIPO,
         dimre.rango_etario_id,
         COUNT(*),
-        SUM(ts.sum_articulo),
+        (
+            SELECT
+                SUM(TICKET_DET_CANTIDAD) AS sum_articulo
+            FROM GESTIONANDING.TICKET t
+            JOIN GESTIONANDING.TICKET_DET ON TICKET_DET_TICKET = TICKET_ID
+            JOIN GESTIONANDING.SUCURSAL ON TICKET_SUCURSAL = SUCURSAL_ID
+            JOIN GESTIONANDING.DIRECCION ON SUCURSAL_DIRECCION = DIRE_ID
+            JOIN GESTIONANDING.LOCALIDAD ON DIRE_LOCALIDAD = LOCALIDAD_ID
+            JOIN GESTIONANDING.CAJA ic ON TICKET_CAJA_NUMERO = CAJA_NUMERO AND TICKET_SUCURSAL = CAJA_SUCURSAL
+            JOIN GESTIONANDING.EMPLEADO ie ON TICKET_EMPLEADO = EMPLEADO_LEGAJO
+            JOIN BI_GESTIONANDING.BI_DIM_TIEMPO idimt ON
+                YEAR(TICKET_FECHA_HORA) = idimt.anio AND 
+                BI_GESTIONANDING.FX_OBTENER_CUATRIMESTRE(TICKET_FECHA_HORA) = idimt.cuatrimestre AND 
+                MONTH(TICKET_FECHA_HORA) = idimt.mes
+            JOIN BI_GESTIONANDING.BI_DIM_UBICACION_SUCU idimus
+                ON LOCALIDAD_ID = idimus.localidad_cd AND LOCALIDAD_PROVINCIA = idimus.provincia_cd
+            JOIN BI_GESTIONANDING.BI_DIM_TURNO idimtu 
+                ON BI_GESTIONANDING.FX_OBTENER_TURNO(TICKET_FECHA_HORA) = idimtu.turno_id
+            JOIN BI_GESTIONANDING.BI_DIM_RANGO_ETARIO idimre ON
+                BI_GESTIONANDING.FX_CALCULAR_RANGO_ETARIO(
+                            DATEDIFF(YEAR, ie.EMPLEADO_FECHA_NACIMIENTO, GETDATE())
+                        ) = idimre.rango_etario_id
+            WHERE
+                idimt.tiempo_id = dimt.tiempo_id
+                AND idimus.ubicacion_sucu_id = dimus.ubicacion_sucu_id
+                AND idimtu.turno_id = dimtu.turno_id
+                AND ic.CAJA_TIPO = c.CAJA_TIPO
+                AND idimre.rango_etario_id = dimre.rango_etario_id
+            
+        ),
         SUM(TICKET_TOTAL_TICKET)
     FROM GESTIONANDING.TICKET t
-    JOIN TicketSums ts ON ts.ticket_id = t.TICKET_ID
     JOIN GESTIONANDING.SUCURSAL ON TICKET_SUCURSAL = SUCURSAL_ID
     JOIN GESTIONANDING.DIRECCION ON SUCURSAL_DIRECCION = DIRE_ID
     JOIN GESTIONANDING.LOCALIDAD ON DIRE_LOCALIDAD = LOCALIDAD_ID
@@ -644,7 +668,41 @@ BEGIN
         BI_GESTIONANDING.FX_OBTENER_CUATRIMESTRE(TICKET_FECHA_HORA) = dimt.cuatrimestre AND 
         MONTH(TICKET_FECHA_HORA) = dimt.mes
     JOIN BI_GESTIONANDING.BI_DIM_UBICACION_SUCU dimus
-        ON LOCALIDAD_ID =dimus.localidad_cd AND LOCALIDAD_PROVINCIA =dimus.provincia_cd
+        ON LOCALIDAD_ID = dimus.localidad_cd AND LOCALIDAD_PROVINCIA = dimus.provincia_cd
+    JOIN BI_GESTIONANDING.BI_DIM_TURNO dimtu ON 
+        BI_GESTIONANDING.FX_OBTENER_TURNO(TICKET_FECHA_HORA) = dimtu.turno_id
+    JOIN BI_GESTIONANDING.BI_DIM_RANGO_ETARIO dimre ON
+        BI_GESTIONANDING.FX_CALCULAR_RANGO_ETARIO(
+                    DATEDIFF(YEAR, EMPLEADO_FECHA_NACIMIENTO, GETDATE())
+                ) = dimre.rango_etario_id
+    GROUP BY
+        dimt.tiempo_id,
+        dimus.ubicacion_sucu_id,
+        dimtu.turno_id,
+        CAJA_TIPO,
+        dimre.rango_etario_id*/
+    SELECT
+        dimt.tiempo_id,
+        dimus.ubicacion_sucu_id,
+        dimtu.turno_id,
+        CAJA_TIPO,
+        dimre.rango_etario_id,
+        COUNT(DISTINCT TICKET_ID),
+        SUM(TICKET_DET_CANTIDAD),
+        SUM(TICKET_DET_CANTIDAD*TICKET_DET_PRECIO_UNITARIO)
+    FROM GESTIONANDING.TICKET t
+    JOIN GESTIONANDING.TICKET_DET ON TICKET_DET_TICKET = TICKET_ID
+    JOIN GESTIONANDING.SUCURSAL ON TICKET_SUCURSAL = SUCURSAL_ID
+    JOIN GESTIONANDING.DIRECCION ON SUCURSAL_DIRECCION = DIRE_ID
+    JOIN GESTIONANDING.LOCALIDAD ON DIRE_LOCALIDAD = LOCALIDAD_ID
+    JOIN GESTIONANDING.CAJA c ON TICKET_CAJA_NUMERO = CAJA_NUMERO AND TICKET_SUCURSAL = CAJA_SUCURSAL
+    JOIN GESTIONANDING.EMPLEADO ON TICKET_EMPLEADO = EMPLEADO_LEGAJO
+    JOIN BI_GESTIONANDING.BI_DIM_TIEMPO dimt ON
+        YEAR(TICKET_FECHA_HORA) = dimt.anio AND 
+        BI_GESTIONANDING.FX_OBTENER_CUATRIMESTRE(TICKET_FECHA_HORA) = dimt.cuatrimestre AND 
+        MONTH(TICKET_FECHA_HORA) = dimt.mes
+    JOIN BI_GESTIONANDING.BI_DIM_UBICACION_SUCU dimus
+        ON LOCALIDAD_ID = dimus.localidad_cd AND LOCALIDAD_PROVINCIA = dimus.provincia_cd
     JOIN BI_GESTIONANDING.BI_DIM_TURNO dimtu ON 
         BI_GESTIONANDING.FX_OBTENER_TURNO(TICKET_FECHA_HORA) = dimtu.turno_id
     JOIN BI_GESTIONANDING.BI_DIM_RANGO_ETARIO dimre ON
@@ -660,6 +718,82 @@ BEGIN
 END
 GO
 
+CREATE PROCEDURE BI_GESTIONANDING.MIGRAR_BI_FACT_DESCUENTO
+AS
+BEGIN
+    INSERT INTO BI_GESTIONANDING.BI_FACT_DESCUENTO (
+    desc_tiempo,
+    desc_medio_pago,
+    desc_categoria,
+    sum_total_ticket,
+    sum_promo_producto,
+    sum_descuento_mp
+    )
+    SELECT
+        dimt.tiempo_id,
+        --dimmp.medio_pago_id,
+        -- FALTA CATEGORIA
+        SUM(TICKET_TOTAL_TICKET),
+        SUM(TICKET_TOTAL_DESCUENTO_PROMOCIONES),
+        SUM(TICKET_TOTAL_DESCUENTO_APLICADO_MP)
+
+    FROM GESTIONANDING.TICKET
+    --JOIN GESTIONANDING.PAGO ON PAGO.PAGO_TICKET = TICKET_ID
+    JOIN BI_GESTIONANDING.BI_DIM_TIEMPO dimt ON
+        YEAR(TICKET_FECHA_HORA) = dimt.anio AND 
+        BI_GESTIONANDING.FX_OBTENER_CUATRIMESTRE(TICKET_FECHA_HORA) = dimt.cuatrimestre AND 
+        MONTH(TICKET_FECHA_HORA) = dimt.mes
+    --JOIN BI_GESTIONANDING.BI_DIM_MEDIO_PAGO dimmp ON PAGO.PAGO_MEDIO_PAGO = dimmp.medio_pago_id 
+    GROUP BY
+        dimt.tiempo_id--,
+        --dimmp.medio_pago_id
+        -- FALTA CATEGORIA
+
+    
+    -- EJERCICIO 5
+    SELECT
+        dimt.tiempo_id,
+        SUM(TICKET_TOTAL_TICKET),
+        SUM(TICKET_TOTAL_DESCUENTO_PROMOCIONES),
+        SUM(TICKET_TOTAL_DESCUENTO_APLICADO_MP)
+
+    FROM GESTIONANDING.TICKET
+    JOIN BI_GESTIONANDING.BI_DIM_TIEMPO dimt ON
+        YEAR(TICKET_FECHA_HORA) = dimt.anio AND 
+        BI_GESTIONANDING.FX_OBTENER_CUATRIMESTRE(TICKET_FECHA_HORA) = dimt.cuatrimestre AND 
+        MONTH(TICKET_FECHA_HORA) = dimt.mes
+        GROUP BY
+        dimt.tiempo_id
+    
+    -- EJERCICIO 6
+    SELECT
+        dimt.tiempo_id,
+        cate_prod_id,
+        SUM(TICKET_TOTAL_DESCUENTO_PROMOCIONES)
+    FROM GESTIONANDING.TICKET
+    JOIN GESTIONANDING.TICKET_DET ON TICKET_DET_TICKET = TICKET_ID
+    JOIN GESTIONANDING.PROMOCION_APLICADA ON PA_TICKET_DET = TICKET_DET_ID
+    JOIN GESTIONANDING.PRODUCTO ON TICKET_DET_PRODUCTO = PRODUCTO_COD
+    JOIN GESTIONANDING.PRODUCTO_POR_SUBCATEGORIA ON PRODUCTO_COD = PXS_PRODUCTO
+    JOIN GESTIONANDING.CATEGORIA_POR_SUBCATEGORIA ON CXS_SUBCAT = PXS_SUBCATEGORIA
+    JOIN BI_GESTIONANDING.BI_DIM_TIEMPO dimt ON
+        YEAR(TICKET_FECHA_HORA) = dimt.anio AND 
+        BI_GESTIONANDING.FX_OBTENER_CUATRIMESTRE(TICKET_FECHA_HORA) = dimt.cuatrimestre AND 
+        MONTH(TICKET_FECHA_HORA) = dimt.mes
+    JOIN BI_GESTIONANDING.BI_DIM_CATE_PROD ON cate_prod_id = CXS_CATEGORIA
+    GROUP BY
+        dimt.tiempo_id,
+        cate_prod_id
+
+
+
+
+SELECT *
+FROM GESTIONANDING.TICKET
+
+
+END
+GO
 
 -- Fin crear Procedures
 
@@ -667,6 +801,7 @@ GO
 EXEC BI_GESTIONANDING.MIGRAR_BI_FACT_ENVIO
 EXEC BI_GESTIONANDING.MIGRAR_BI_FACT_PAGO
 EXEC BI_GESTIONANDING.MIGRAR_BI_FACT_VENTAS
+EXEC BI_GESTIONANDING.MIGRAR_BI_FACT_DESCUENTO
 -- Fin ejecucion de Procedures
 
 BEGIN TRANSACTION
