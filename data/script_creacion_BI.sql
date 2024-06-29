@@ -798,6 +798,21 @@ GO
     VISTA 02
 ****************/
 
+CREATE VIEW BI_GESTIONANDING.CANTIDAD_UNIDADES_PROMEDIO
+AS
+SELECT tm.anio
+	,tm.cuatrimestre
+	,tn.descripcion
+	,sum(sum_articulo) / sum(cant_ventas) promedioUnidades
+FROM BI_GESTIONANDING.BI_FACT_VENTAS v
+JOIN bi_gestionanding.BI_DIM_TURNO tn ON tn.turno_id = v.venta_turno
+JOIN bi_gestionanding.BI_DIM_TIEMPO tm ON tm.tiempo_id = v.venta_tiempo
+GROUP BY tn.turno_id
+	,tn.descripcion
+	,tm.anio
+	,tm.cuatrimestre
+GO
+
 /***************
     VISTA 03
 ****************/
