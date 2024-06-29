@@ -873,6 +873,17 @@ GO
     VISTA 05
 ****************/
 
+CREATE VIEW BI_GESTIONANDING.PORCENTAJE_DE_DESCUENTO
+AS
+SELECT t.anio
+	,t.mes
+	,(sum(sum_promociones) + sum(sum_descuentos)) * 100 / sum(sum_total_ticket) porcentajeDeDescuento
+FROM BI_GESTIONANDING.BI_FACT_VENTAS v
+JOIN BI_GESTIONANDING.BI_DIM_TIEMPO t ON v.venta_tiempo = t.tiempo_id
+GROUP BY t.anio
+	,t.mes
+GO
+
 /***************
     VISTA 06
 ****************/
