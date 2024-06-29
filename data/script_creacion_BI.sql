@@ -778,6 +778,22 @@ GO
     VISTA 01
 ****************/
 
+CREATE VIEW BI_GESTIONANDING.TICKET_PROMEDIO_MENSUAL
+AS
+SELECT localidad_tx
+	,provincia_tx
+	,bdt.anio
+	,bdt.mes
+	,round(sum(sum_total_ticket) / sum(cant_ventas), 2) promedioVentas
+FROM BI_GESTIONANDING.BI_FACT_VENTAS bfv
+JOIN bi_gestionanding.bi_dim_tiempo bdt ON bfv.venta_tiempo = bdt.tiempo_id
+JOIN bi_gestionanding.BI_DIM_UBICACION_SUCU bdus ON bdus.ubicacion_sucu_id = bfv.venta_ubi_sucu
+GROUP BY bdt.anio
+	,bdt.mes
+	,provincia_tx
+	,localidad_tx
+GO
+
 /***************
     VISTA 02
 ****************/
