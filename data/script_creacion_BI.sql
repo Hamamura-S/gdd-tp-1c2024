@@ -828,7 +828,7 @@ SELECT t.anio
 			FROM BI_GESTIONANDING.BI_FACT_VENTAS ven
 			JOIN bi_gestionanding.BI_DIM_TIEMPO tie ON tie.tiempo_id = ven.venta_tiempo
 			WHERE tie.anio = t.anio
-			), 2)
+			), 2) porcentaje
 FROM BI_GESTIONANDING.BI_FACT_VENTAS v
 JOIN bi_gestionanding.BI_DIM_RANGO_ETARIO re ON re.rango_etario_id = v.venta_rango_etario
 JOIN bi_gestionanding.BI_DIM_TIPO_CAJA tc ON tc.tipo_caja_id = v.venta_tipo_caja
@@ -844,6 +844,30 @@ GO
 /***************
     VISTA 04
 ****************/
+
+CREATE VIEW BI_GESTIONANDING.VENTAS_REGISTRADAS_POR_TURNO
+AS
+SELECT t.anio
+	,t.mes
+	,u.provincia_tx
+	,u.localidad_tx
+	,tur.descripcion
+	,sum(v.cant_ventas) cantidadDeVentas
+FROM BI_GESTIONANDING.BI_FACT_VENTAS v
+JOIN BI_GESTIONANDING.BI_DIM_UBICACION_SUCU u ON u.ubicacion_sucu_id = v.venta_ubi_sucu
+JOIN BI_GESTIONANDING.BI_DIM_TIEMPO t ON t.tiempo_id = v.venta_tiempo
+JOIN bi_gestionanding.BI_DIM_TURNO tur ON tur.turno_id = v.venta_turno
+GROUP BY t.tiempo_id
+	,t.anio
+	,t.mes
+	,u.ubicacion_sucu_id
+	,u.provincia_cd
+	,u.provincia_tx
+	,u.localidad_cd
+	,u.localidad_tx
+	,tur.turno_id
+	,tur.descripcion
+GO
 
 /***************
     VISTA 05
