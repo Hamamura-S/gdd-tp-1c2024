@@ -924,7 +924,7 @@ CREATE VIEW BI_GESTIONANDING.TRES_CATEGORIAS_CON_MAYOR_DESCUENTO -- ESTA INCOMPL
 AS
 SELECT TOP 3 t.cuatrimestre
 	,c.descripcion
-	,sum(d.sum_promo_producto)
+	,sum(d.sum_promo_producto) sumatoria
 FROM BI_GESTIONANDING.BI_FACT_DESCUENTO d
 JOIN BI_GESTIONANDING.BI_DIM_TIEMPO t ON t.tiempo_id = d.desc_tiempo
 JOIN BI_GESTIONANDING.BI_DIM_CATE_PROD c ON c.cate_prod_id = d.desc_categoria
