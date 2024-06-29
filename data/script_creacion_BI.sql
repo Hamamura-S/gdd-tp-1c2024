@@ -571,7 +571,7 @@ BEGIN
         SUM(
             CASE 
                 WHEN
-					ENVIO_FECHA_PROGRAMADA = datetrunc(day, ENVIO_FECHA_ENTREGA) AND
+					ENVIO_FECHA_PROGRAMADA = CAST(ENVIO_FECHA_ENTREGA AS DATE) AND
                     DATEPART(HOUR, ENVIO_FECHA_ENTREGA) BETWEEN ENVIO_HORA_INICIO AND ENVIO_HORA_FIN THEN 1 
                 ELSE 0 
             END
@@ -922,19 +922,29 @@ GO
 
 CREATE VIEW BI_GESTIONANDING.TRES_CATEGORIAS_CON_MAYOR_DESCUENTO -- ESTA INCOMPLETA, NO SE COMO SEGUIRLA
 AS
-SELECT TOP 3 t.cuatrimestre
-	,c.descripcion
-	,sum(d.sum_promo_producto)
+SELECT
+    t.anio,
+    t.cuatrimestre,
+    c.cate_prod_id,
+    c.descripcion
 FROM BI_GESTIONANDING.BI_FACT_DESCUENTO d
 JOIN BI_GESTIONANDING.BI_DIM_TIEMPO t ON t.tiempo_id = d.desc_tiempo
 JOIN BI_GESTIONANDING.BI_DIM_CATE_PROD c ON c.cate_prod_id = d.desc_categoria
-WHERE t.anio = 2024
-	AND t.cuatrimestre = 1
-GROUP BY t.anio
-	,t.cuatrimestre
-	,d.desc_categoria
-	,c.descripcion
-ORDER BY sum(d.sum_promo_producto) DESC
+GROUP BY 
+    t.anio,
+    t.cuatrimestre,
+    c.cate_prod_id,
+    c.descripcion
+HAVING c.cate_prod_id IN (
+    SELECT TOP 3 cate_prod_id
+    FROM BI_GESTIONANDING.BI_FACT_DESCUENTO i 
+    JOIN BI_GESTIONANDING.BI_DIM_TIEMPO ON tiempo_id = desc_tiempo
+    JOIN BI_GESTIONANDING.BI_DIM_CATE_PROD ic ON cate_prod_id = desc_categoria
+    WHERE anio = t.anio
+    AND cuatrimestre = t.cuatrimestre
+    GROUP BY cate_prod_id
+    ORDER BY SUM(i.sum_promo_producto) DESC
+)
 GO
 
 /***************
