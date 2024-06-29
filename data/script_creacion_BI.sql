@@ -37,7 +37,7 @@ GO
 IF OBJECT_ID ('BI_GESTIONANDING.FK_BI_DESCUENTO_TIEMPO', 'F') IS NOT NULL
     --DESCUENTO
     ALTER TABLE BI_GESTIONANDING.BI_FACT_DESCUENTO 
-    DROP CONSTRAINT FK_BI_DESCUENTO_TIEMPO, FK_BI_DESCUENTO_MEDIO_PAGO, FK_BI_DESCUENTO_CATE_PROD
+    DROP CONSTRAINT FK_BI_DESCUENTO_TIEMPO, FK_BI_DESCUENTO_CATE_PROD
 GO
 
 -- Fin DROP FKs
@@ -250,6 +250,7 @@ CREATE TABLE BI_GESTIONANDING.BI_FACT_PAGO
     pago_cuotas             INTEGER NOT NULL,
     pago_medio_pago         INTEGER NOT NULL,
     sum_importe             DECIMAL(12, 2),
+    sum_descuentos          DECIMAL(12, 2),
     PRIMARY KEY (pago_ubi_sucu, pago_tiempo, pago_rango_etario, pago_cuotas, pago_medio_pago)
 )
 GO
@@ -264,6 +265,9 @@ CREATE TABLE BI_GESTIONANDING.BI_FACT_VENTAS
     cant_ventas             INTEGER,
     sum_articulo            INTEGER,
     sum_total_ticket        DECIMAL(12, 2),
+    sum_subtotal_productos  DECIMAL(12, 2),
+    sum_promociones         DECIMAL(12, 2),
+    sum_descuentos          DECIMAL(12, 2),
     PRIMARY KEY (venta_tiempo, venta_ubi_sucu, venta_turno, venta_tipo_caja, venta_rango_etario)
 )
 GO
@@ -271,12 +275,9 @@ GO
 CREATE TABLE BI_GESTIONANDING.BI_FACT_DESCUENTO
 (
     desc_tiempo             INTEGER NOT NULL,
-    desc_medio_pago         INTEGER NOT NULL,
     desc_categoria          INTEGER NOT NULL,
-    sum_total_ticket        DECIMAL(12, 2),
     sum_promo_producto      DECIMAL(12, 2),
-    sum_descuento_mp        DECIMAL(12, 2),
-    PRIMARY KEY (desc_tiempo, desc_medio_pago, desc_categoria)
+    PRIMARY KEY (desc_tiempo, desc_categoria)
 )
 GO
 
@@ -320,10 +321,12 @@ BEGIN
         SET @turnoId = 1
     ELSE IF @horaOnly BETWEEN '12:00:00' AND '15:59:59'
         SET @turnoId = 2
-    ELSE IF @horaOnly BETWEEN '16:00:00' AND '19:59:59'
+    ELSE IF @horaOnly BETWEEN '16:00:00' AND '20:00:00'
         SET @turnoId = 3
-    ELSE
+    ELSE IF @horaOnly < '07:59:59' OR @horaOnly > '20:00:00'
         SET @turnoId = 4
+    ELSE
+        SET @turnoId = 5
     RETURN @turnoId
 END
 GO
@@ -358,7 +361,6 @@ GO
 
 ALTER TABLE BI_GESTIONANDING.BI_FACT_DESCUENTO 
     ADD CONSTRAINT FK_BI_DESCUENTO_TIEMPO FOREIGN KEY (desc_tiempo) REFERENCES BI_GESTIONANDING.BI_DIM_TIEMPO(tiempo_id),
-        CONSTRAINT FK_BI_DESCUENTO_MEDIO_PAGO FOREIGN KEY (desc_medio_pago) REFERENCES BI_GESTIONANDING.BI_DIM_MEDIO_PAGO(medio_pago_id),
         CONSTRAINT FK_BI_DESCUENTO_CATE_PROD FOREIGN KEY (desc_categoria) REFERENCES BI_GESTIONANDING.BI_DIM_CATE_PROD(cate_prod_id)
 GO
 
@@ -386,6 +388,8 @@ INSERT INTO BI_GESTIONANDING.BI_DIM_CUOTAS (cuotas_id)
     SELECT distinct DETPAG_CUOTAS
     FROM GESTIONANDING.DETALLE_PAGO
 GO
+INSERT INTO BI_GESTIONANDING.BI_DIM_CUOTAS (cuotas_id) VALUES (0)
+GO
 
 -- migrar BI_DIM_TURNO
 INSERT INTO BI_GESTIONANDING.BI_DIM_TURNO (descripcion)
@@ -393,6 +397,7 @@ INSERT INTO BI_GESTIONANDING.BI_DIM_TURNO (descripcion)
         ('08:00 - 12:00'),
         ('12:00 - 16:00'),
         ('16:00 - 20:00'),
+        ('20:00 - 08:00'),
         ('N/A')
 GO
 
@@ -569,21 +574,23 @@ CREATE PROCEDURE BI_GESTIONANDING.MIGRAR_BI_FACT_PAGO
 AS
 BEGIN
     INSERT INTO BI_FACT_PAGO (pago_ubi_sucu, pago_tiempo, pago_rango_etario,
-    pago_cuotas, pago_medio_pago, sum_importe)
+    pago_cuotas, pago_medio_pago, sum_importe, sum_descuentos)
     SELECT
-    dimus.ubicacion_sucu_id,
+        dimus.ubicacion_sucu_id,
         dimt.tiempo_id,
         dimre.rango_etario_id,
-        DETPAG_CUOTAS,
+        ISNULL(DETPAG_CUOTAS,0),
         PAGO_MEDIO_PAGO,
-        SUM(PAGO_IMPORTE)
+        SUM(PAGO_IMPORTE),
+        SUM(DA_APLICADA_DESCUENTO)
     FROM GESTIONANDING.PAGO
     JOIN GESTIONANDING.TICKET ON PAGO_TICKET = TICKET_ID
     JOIN GESTIONANDING.SUCURSAL ON TICKET_SUCURSAL = SUCURSAL_ID
     JOIN GESTIONANDING.DIRECCION ON SUCURSAL_DIRECCION = DIRE_ID
     JOIN GESTIONANDING.LOCALIDAD ON DIRE_LOCALIDAD = LOCALIDAD_ID
-    JOIN GESTIONANDING.DETALLE_PAGO ON DETPAG_ID = PAGO_DETALLE
+    LEFT JOIN GESTIONANDING.DETALLE_PAGO ON DETPAG_ID = PAGO_DETALLE
     LEFT JOIN GESTIONANDING.CLIENTE ON DETPAG_CLIE = CLIENTE_ID
+    LEFT JOIN GESTIONANDING.DESCUENTO_APLICADO ON DA_PAGO = PAGO_ID
     JOIN BI_GESTIONANDING.BI_DIM_UBICACION_SUCU dimus
         ON LOCALIDAD_ID =dimus.localidad_cd AND LOCALIDAD_PROVINCIA =dimus.provincia_cd
     JOIN BI_GESTIONANDING.BI_DIM_TIEMPO dimt ON
@@ -598,7 +605,7 @@ BEGIN
         dimus.ubicacion_sucu_id,
         dimt.tiempo_id,
         dimre.rango_etario_id,
-        DETPAG_CUOTAS,
+        ISNULL(DETPAG_CUOTAS,0),
         PAGO_MEDIO_PAGO
 END
 GO
@@ -614,10 +621,11 @@ BEGIN
     venta_rango_etario,
     cant_ventas,
     sum_articulo,
-    sum_total_ticket
+    sum_total_ticket,
+    sum_subtotal_productos,
+    sum_promociones,
+    sum_descuentos
     )
-    /*
-    -- esto tiene en cuenta las promociones, descuentos y costos de envio
     
     SELECT
         dimt.tiempo_id,
@@ -656,7 +664,10 @@ BEGIN
                 AND idimre.rango_etario_id = dimre.rango_etario_id
             
         ),
-        SUM(TICKET_TOTAL_TICKET)
+        SUM(TICKET_TOTAL_TICKET),
+        SUM(TICKET_SUBTOTAL_PRODUCTOS),
+        SUM(TICKET_TOTAL_DESCUENTO_PROMOCIONES),
+        SUM(TICKET_TOTAL_DESCUENTO_APLICADO_MP)
     FROM GESTIONANDING.TICKET t
     JOIN GESTIONANDING.SUCURSAL ON TICKET_SUCURSAL = SUCURSAL_ID
     JOIN GESTIONANDING.DIRECCION ON SUCURSAL_DIRECCION = DIRE_ID
@@ -680,7 +691,9 @@ BEGIN
         dimus.ubicacion_sucu_id,
         dimtu.turno_id,
         CAJA_TIPO,
-        dimre.rango_etario_id*/
+        dimre.rango_etario_id
+    /*
+    -- NO TIENE LAS SUMATORIAS PARA LA VISTA 5
     SELECT
         dimt.tiempo_id,
         dimus.ubicacion_sucu_id,
@@ -714,7 +727,7 @@ BEGIN
         dimus.ubicacion_sucu_id,
         dimtu.turno_id,
         CAJA_TIPO,
-        dimre.rango_etario_id
+        dimre.rango_etario_id*/
 END
 GO
 
@@ -723,53 +736,13 @@ AS
 BEGIN
     INSERT INTO BI_GESTIONANDING.BI_FACT_DESCUENTO (
     desc_tiempo,
-    desc_medio_pago,
     desc_categoria,
-    sum_total_ticket,
-    sum_promo_producto,
-    sum_descuento_mp
+    sum_promo_producto
     )
     SELECT
         dimt.tiempo_id,
-        --dimmp.medio_pago_id,
-        -- FALTA CATEGORIA
-        SUM(TICKET_TOTAL_TICKET),
-        SUM(TICKET_TOTAL_DESCUENTO_PROMOCIONES),
-        SUM(TICKET_TOTAL_DESCUENTO_APLICADO_MP)
-
-    FROM GESTIONANDING.TICKET
-    --JOIN GESTIONANDING.PAGO ON PAGO.PAGO_TICKET = TICKET_ID
-    JOIN BI_GESTIONANDING.BI_DIM_TIEMPO dimt ON
-        YEAR(TICKET_FECHA_HORA) = dimt.anio AND 
-        BI_GESTIONANDING.FX_OBTENER_CUATRIMESTRE(TICKET_FECHA_HORA) = dimt.cuatrimestre AND 
-        MONTH(TICKET_FECHA_HORA) = dimt.mes
-    --JOIN BI_GESTIONANDING.BI_DIM_MEDIO_PAGO dimmp ON PAGO.PAGO_MEDIO_PAGO = dimmp.medio_pago_id 
-    GROUP BY
-        dimt.tiempo_id--,
-        --dimmp.medio_pago_id
-        -- FALTA CATEGORIA
-
-    
-    -- EJERCICIO 5
-    SELECT
-        dimt.tiempo_id,
-        SUM(TICKET_TOTAL_TICKET),
-        SUM(TICKET_TOTAL_DESCUENTO_PROMOCIONES),
-        SUM(TICKET_TOTAL_DESCUENTO_APLICADO_MP)
-
-    FROM GESTIONANDING.TICKET
-    JOIN BI_GESTIONANDING.BI_DIM_TIEMPO dimt ON
-        YEAR(TICKET_FECHA_HORA) = dimt.anio AND 
-        BI_GESTIONANDING.FX_OBTENER_CUATRIMESTRE(TICKET_FECHA_HORA) = dimt.cuatrimestre AND 
-        MONTH(TICKET_FECHA_HORA) = dimt.mes
-        GROUP BY
-        dimt.tiempo_id
-    
-    -- EJERCICIO 6
-    SELECT
-        dimt.tiempo_id,
         cate_prod_id,
-        SUM(TICKET_TOTAL_DESCUENTO_PROMOCIONES)
+        SUM(PA_APLICADA_DESCUENTO)
     FROM GESTIONANDING.TICKET
     JOIN GESTIONANDING.TICKET_DET ON TICKET_DET_TICKET = TICKET_ID
     JOIN GESTIONANDING.PROMOCION_APLICADA ON PA_TICKET_DET = TICKET_DET_ID
@@ -784,13 +757,6 @@ BEGIN
     GROUP BY
         dimt.tiempo_id,
         cate_prod_id
-
-
-
-
-SELECT *
-FROM GESTIONANDING.TICKET
-
 
 END
 GO
