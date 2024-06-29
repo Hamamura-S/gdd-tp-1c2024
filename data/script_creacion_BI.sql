@@ -570,8 +570,9 @@ BEGIN
         COUNT(*) AS cant_envios,
         SUM(
             CASE 
-                WHEN --ENVIO_FECHA_ENTREGA tiene la hora tambien
-                    ENVIO_FECHA_ENTREGA BETWEEN ENVIO_HORA_INICIO AND ENVIO_HORA_FIN THEN 1 
+                WHEN
+					ENVIO_FECHA_PROGRAMADA = datetrunc(day, ENVIO_FECHA_ENTREGA) AND
+                    DATEPART(HOUR, ENVIO_FECHA_ENTREGA) BETWEEN ENVIO_HORA_INICIO AND ENVIO_HORA_FIN THEN 1 
                 ELSE 0 
             END
             ) AS cant_envios_en_horario,

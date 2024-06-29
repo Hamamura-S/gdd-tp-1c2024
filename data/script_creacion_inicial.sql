@@ -491,8 +491,8 @@ CREATE TABLE GESTIONANDING.ENVIO
     ENVIO_NRO               INT             IDENTITY (1,1) PRIMARY KEY,
     ENVIO_TICKET            BIGINT          NOT NULL, --(FK)
     ENVIO_FECHA_PROGRAMADA  DATE            NULL,
-    ENVIO_HORA_INICIO       DATETIME        NULL,
-    ENVIO_HORA_FIN          DATETIME        NULL,
+    ENVIO_HORA_INICIO       INT		        NULL,
+    ENVIO_HORA_FIN          INT		        NULL,
     ENVIO_CLIENTE           INT             NOT NULL, --(FK)
     ENVIO_COSTO             DECIMAL(10,2)   NULL,
     ENVIO_ESTADO            VARCHAR(20)     NULL,
