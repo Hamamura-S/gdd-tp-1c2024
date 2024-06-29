@@ -817,6 +817,30 @@ GO
     VISTA 03
 ****************/
 
+CREATE VIEW BI_GESTIONANDING.PORCENTAJE_ANUAL_VENTAS
+AS
+SELECT t.anio
+	,t.cuatrimestre
+	,tc.descripcion
+	,re.descripcion
+	,round(cast(sum(v.cant_ventas) AS FLOAT) * 100 / (
+			SELECT sum(cant_ventas)
+			FROM BI_GESTIONANDING.BI_FACT_VENTAS ven
+			JOIN bi_gestionanding.BI_DIM_TIEMPO tie ON tie.tiempo_id = ven.venta_tiempo
+			WHERE tie.anio = t.anio
+			), 2)
+FROM BI_GESTIONANDING.BI_FACT_VENTAS v
+JOIN bi_gestionanding.BI_DIM_RANGO_ETARIO re ON re.rango_etario_id = v.venta_rango_etario
+JOIN bi_gestionanding.BI_DIM_TIPO_CAJA tc ON tc.tipo_caja_id = v.venta_tipo_caja
+JOIN BI_GESTIONANDING.BI_DIM_TIEMPO t ON t.tiempo_id = v.venta_tiempo
+GROUP BY re.rango_etario_id
+	,re.descripcion
+	,tc.tipo_caja_id
+	,tc.descripcion
+	,t.anio
+	,t.cuatrimestre
+GO
+
 /***************
     VISTA 04
 ****************/
