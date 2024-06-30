@@ -150,8 +150,8 @@ IF OBJECT_ID('BI_GESTIONANDING.PORCENTAJE_ANUAL_VENTAS', 'V') IS NOT NULL
     DROP VIEW BI_GESTIONANDING.PORCENTAJE_ANUAL_VENTAS
 GO
 
-IF OBJECT_ID('BI_GESTIONANDING.VENTAS_REGISTRADAS_POR_TURNO', 'V') IS NOT NULL
-    DROP VIEW BI_GESTIONANDING.VENTAS_REGISTRADAS_POR_TURNO
+IF OBJECT_ID('BI_GESTIONANDING.VENTAS_REGISTRADAS_X_TURNO', 'V') IS NOT NULL
+    DROP VIEW BI_GESTIONANDING.VENTAS_REGISTRADAS_X_TURNO
 GO
 
 IF OBJECT_ID('BI_GESTIONANDING.PORCENTAJE_DE_DESCUENTO', 'V') IS NOT NULL
@@ -162,12 +162,28 @@ IF OBJECT_ID('BI_GESTIONANDING.TRES_CATEGORIAS_CON_MAYOR_DESCUENTO', 'V') IS NOT
     DROP VIEW BI_GESTIONANDING.TRES_CATEGORIAS_CON_MAYOR_DESCUENTO
 GO
 
+IF OBJECT_ID('BI_GESTIONANDING.PORCENTAJE_CUMPLIMIENTO_ENVIOS', 'V') IS NOT NULL
+    DROP VIEW BI_GESTIONANDING.PORCENTAJE_CUMPLIMIENTO_ENVIOS
+GO
+
+IF OBJECT_ID('BI_GESTIONANDING.ENVIOS_X_RANGO_ETARIO', 'V') IS NOT NULL
+    DROP VIEW BI_GESTIONANDING.ENVIOS_X_RANGO_ETARIO
+GO
+
 IF OBJECT_ID('BI_GESTIONANDING.CINCO_LOCALIDADES_CON_MAYOR_COSTO_ENVIO', 'V') IS NOT NULL
     DROP VIEW BI_GESTIONANDING.CINCO_LOCALIDADES_CON_MAYOR_COSTO_ENVIO
 GO
 
-IF OBJECT_ID('BI_GESTIONANDING.PORCENTAJE_CUMPLIMIENTO_ENVIOS', 'V') IS NOT NULL
-    DROP VIEW BI_GESTIONANDING.PORCENTAJE_CUMPLIMIENTO_ENVIOS
+IF OBJECT_ID('BI_GESTIONANDING.TOP_3_SUCURSALES_IMPORTE_PAGO_CUOTAS', 'V') IS NOT NULL
+    DROP VIEW BI_GESTIONANDING.TOP_3_SUCURSALES_IMPORTE_PAGO_CUOTAS
+GO
+
+IF OBJECT_ID('BI_GESTIONANDING.CUOTA_PROMEDIO_X_RANGO_ETARIO', 'V') IS NOT NULL
+    DROP VIEW BI_GESTIONANDING.CUOTA_PROMEDIO_X_RANGO_ETARIO
+GO
+
+IF OBJECT_ID('BI_GESTIONANDING.PORC_DESC_APLIC_X_MEDIO_PAGO', 'V') IS NOT NULL
+    DROP VIEW BI_GESTIONANDING.PORC_DESC_APLIC_X_MEDIO_PAGO
 GO
 
 -- Fin DROP Views
@@ -814,11 +830,12 @@ GO
 
 CREATE VIEW BI_GESTIONANDING.TICKET_PROMEDIO_MENSUAL
 AS
-SELECT localidad_tx
+SELECT 
+    localidad_tx
 	,provincia_tx
 	,bdt.anio
 	,bdt.mes
-	,round(sum(sum_total_ticket) / sum(cant_ventas), 2) promedioVentas
+	,CAST(ROUND(SUM(sum_total_ticket) / SUM(cant_ventas), 2) AS DECIMAL(20,2)) promedioVentas
 FROM BI_GESTIONANDING.BI_FACT_VENTAS bfv
 JOIN bi_gestionanding.bi_dim_tiempo bdt ON bfv.venta_tiempo = bdt.tiempo_id
 JOIN bi_gestionanding.BI_DIM_UBICACION_SUCU bdus ON bdus.ubicacion_sucu_id = bfv.venta_ubi_sucu
@@ -834,10 +851,11 @@ GO
 
 CREATE VIEW BI_GESTIONANDING.CANTIDAD_UNIDADES_PROMEDIO
 AS
-SELECT tm.anio
+SELECT 
+    tm.anio
 	,tm.cuatrimestre
 	,tn.descripcion
-	,sum(sum_articulo) / sum(cant_ventas) promedioUnidades
+	,SUM(sum_articulo) / SUM(cant_ventas) promedioUnidades
 FROM BI_GESTIONANDING.BI_FACT_VENTAS v
 JOIN bi_gestionanding.BI_DIM_TURNO tn ON tn.turno_id = v.venta_turno
 JOIN bi_gestionanding.BI_DIM_TIEMPO tm ON tm.tiempo_id = v.venta_tiempo
@@ -853,40 +871,42 @@ GO
 
 CREATE VIEW BI_GESTIONANDING.PORCENTAJE_ANUAL_VENTAS
 AS
-SELECT t.anio
+SELECT 
+    t.anio
 	,t.cuatrimestre
 	,tc.descripcion tipoCaja
 	,re.descripcion rangoEtario
-	,round(cast(sum(v.cant_ventas) AS FLOAT) * 100 / (
-			SELECT sum(cant_ventas)
-			FROM BI_GESTIONANDING.BI_FACT_VENTAS ven
-			JOIN bi_gestionanding.BI_DIM_TIEMPO tie ON tie.tiempo_id = ven.venta_tiempo
-			WHERE tie.anio = t.anio
-			), 2) porcentaje
+	,CAST(ROUND(100.0 * sum(v.cant_ventas) / (
+        SELECT SUM(cant_ventas)
+        FROM BI_GESTIONANDING.BI_FACT_VENTAS ven
+        JOIN bi_gestionanding.BI_DIM_TIEMPO tie ON tie.tiempo_id = ven.venta_tiempo
+        WHERE tie.anio = t.anio
+    ), 2) AS DECIMAL(5,2))  porcentaje
 FROM BI_GESTIONANDING.BI_FACT_VENTAS v
 JOIN bi_gestionanding.BI_DIM_RANGO_ETARIO re ON re.rango_etario_id = v.venta_rango_etario
 JOIN bi_gestionanding.BI_DIM_TIPO_CAJA tc ON tc.tipo_caja_id = v.venta_tipo_caja
 JOIN BI_GESTIONANDING.BI_DIM_TIEMPO t ON t.tiempo_id = v.venta_tiempo
-GROUP BY re.rango_etario_id
-	,re.descripcion
+GROUP BY 
+    t.anio
+	,t.cuatrimestre
 	,tc.tipo_caja_id
 	,tc.descripcion
-	,t.anio
-	,t.cuatrimestre
+    ,re.rango_etario_id
+	,re.descripcion
 GO
 
 /***************
     VISTA 04
 ****************/
 
-CREATE VIEW BI_GESTIONANDING.VENTAS_REGISTRADAS_POR_TURNO
+CREATE VIEW BI_GESTIONANDING.VENTAS_REGISTRADAS_X_TURNO
 AS
 SELECT t.anio
 	,t.mes
 	,u.provincia_tx
 	,u.localidad_tx
 	,tur.descripcion
-	,sum(v.cant_ventas) cantidadDeVentas
+	,SUM(v.cant_ventas) cantidadDeVentas
 FROM BI_GESTIONANDING.BI_FACT_VENTAS v
 JOIN BI_GESTIONANDING.BI_DIM_UBICACION_SUCU u ON u.ubicacion_sucu_id = v.venta_ubi_sucu
 JOIN BI_GESTIONANDING.BI_DIM_TIEMPO t ON t.tiempo_id = v.venta_tiempo
@@ -928,7 +948,8 @@ SELECT
     t.anio,
     t.cuatrimestre,
     c.cate_prod_id,
-    c.descripcion
+    c.descripcion,
+    SUM(d.sum_promo_producto) AS descuento_aplicado
 FROM BI_GESTIONANDING.BI_FACT_DESCUENTO d
 JOIN BI_GESTIONANDING.BI_DIM_TIEMPO t ON t.tiempo_id = d.desc_tiempo
 JOIN BI_GESTIONANDING.BI_DIM_CATE_PROD c ON c.cate_prod_id = d.desc_categoria
@@ -937,16 +958,17 @@ GROUP BY
     t.cuatrimestre,
     c.cate_prod_id,
     c.descripcion
-HAVING c.cate_prod_id IN (
-    SELECT TOP 3 cate_prod_id
-    FROM BI_GESTIONANDING.BI_FACT_DESCUENTO i 
-    JOIN BI_GESTIONANDING.BI_DIM_TIEMPO ON tiempo_id = desc_tiempo
-    JOIN BI_GESTIONANDING.BI_DIM_CATE_PROD ic ON cate_prod_id = desc_categoria
-    WHERE anio = t.anio
-    AND cuatrimestre = t.cuatrimestre
-    GROUP BY cate_prod_id
-    ORDER BY SUM(i.sum_promo_producto) DESC
-)
+HAVING 
+    c.cate_prod_id IN (
+        SELECT TOP 3 cate_prod_id
+        FROM BI_GESTIONANDING.BI_FACT_DESCUENTO i 
+        JOIN BI_GESTIONANDING.BI_DIM_TIEMPO ON tiempo_id = desc_tiempo
+        JOIN BI_GESTIONANDING.BI_DIM_CATE_PROD ic ON cate_prod_id = desc_categoria
+        WHERE anio = t.anio
+        AND cuatrimestre = t.cuatrimestre
+        GROUP BY cate_prod_id
+        ORDER BY SUM(i.sum_promo_producto) DESC
+    )
 GO
 
 /***************
@@ -972,18 +994,37 @@ GO
     VISTA 08
 ****************/
 
+CREATE VIEW BI_GESTIONANDING.ENVIOS_X_RANGO_ETARIO
+AS
+SELECT
+	t.anio año
+	,t.mes mes
+    ,r.descripcion
+	,SUM(e.cant_envios) AS cant_envios
+FROM BI_GESTIONANDING.BI_FACT_ENVIO e
+JOIN BI_GESTIONANDING.BI_DIM_TIEMPO t ON t.tiempo_id = e.envio_tiempo
+JOIN BI_GESTIONANDING.BI_DIM_RANGO_ETARIO r ON r.rango_etario_id = e.envio_rango_etario
+GROUP BY
+	t.anio
+	,t.mes
+    ,r.rango_etario_id
+    ,r.descripcion
+GO
+
 /***************
     VISTA 09
 ****************/
 
 CREATE VIEW BI_GESTIONANDING.CINCO_LOCALIDADES_CON_MAYOR_COSTO_ENVIO
 AS
-SELECT TOP 5 u.provincia_tx
+SELECT TOP 5 
+    u.provincia_tx
 	,u.localidad_tx
 	,sum(e.sum_costo_de_envio) costoDeEnvio
 FROM BI_GESTIONANDING.BI_FACT_ENVIO e
 JOIN BI_GESTIONANDING.BI_DIM_UBICACION_CLIE u ON u.ubicacion_clie_id = e.envio_ubi_clie
-GROUP BY u.ubicacion_clie_id
+GROUP BY 
+    u.ubicacion_clie_id
 	,u.provincia_tx
 	,u.localidad_tx
 ORDER BY sum(e.sum_costo_de_envio) DESC
@@ -993,15 +1034,86 @@ GO
     VISTA 10
 ****************/
 
+CREATE VIEW BI_GESTIONANDING.TOP_3_SUCURSALES_IMPORTE_PAGO_CUOTAS
+AS
+SELECT
+    localidad_tx
+    ,us.provincia_tx
+    ,mp.descripcion AS medio_pago
+    ,t.mes
+    ,t.anio
+    ,SUM(sum_importe) AS importe_pago_cuotas
+FROM BI_GESTIONANDING.BI_FACT_PAGO p
+JOIN BI_GESTIONANDING.BI_DIM_TIEMPO t ON t.tiempo_id = p.pago_tiempo
+JOIN BI_GESTIONANDING.BI_DIM_UBICACION_SUCU us ON us.ubicacion_sucu_id = p.pago_ubi_sucu
+JOIN BI_GESTIONANDING.BI_DIM_MEDIO_PAGO mp ON mp.medio_pago_id = p.pago_medio_pago
+WHERE p.pago_cuotas <> 0
+GROUP BY
+    us.ubicacion_sucu_id
+    ,us.provincia_cd
+    ,us.provincia_tx
+    ,us.localidad_cd
+    ,us.localidad_tx
+    ,mp.medio_pago_id
+    ,mp.descripcion
+    ,t.mes
+    ,t.anio
+HAVING 
+    ubicacion_sucu_id IN (
+        SELECT TOP 3 ius.ubicacion_sucu_id
+        FROM BI_GESTIONANDING.BI_FACT_PAGO ip
+        JOIN BI_GESTIONANDING.BI_DIM_TIEMPO it ON it.tiempo_id = ip.pago_tiempo
+        JOIN BI_GESTIONANDING.BI_DIM_UBICACION_SUCU ius ON ius.ubicacion_sucu_id = ip.pago_ubi_sucu
+        JOIN BI_GESTIONANDING.BI_DIM_MEDIO_PAGO imp ON imp.medio_pago_id = ip.pago_medio_pago
+        WHERE 
+            ip.pago_cuotas <> 0
+            AND imp.medio_pago_id = mp.medio_pago_id
+            AND it.mes = t.mes
+            AND it.anio = t.anio
+        GROUP BY
+            ius.ubicacion_sucu_id
+        ORDER BY SUM(ip.sum_importe)
+    )
+GO
+
 /***************
     VISTA 11
 ****************/
+
+CREATE VIEW BI_GESTIONANDING.CUOTA_PROMEDIO_X_RANGO_ETARIO
+AS
+SELECT 
+    r.descripcion AS rango_etario
+    ,CAST(ROUND(AVG(p.sum_importe/p.pago_cuotas), 2) AS FLOAT) AS cuota_promedio
+FROM BI_GESTIONANDING.BI_FACT_PAGO p
+JOIN BI_GESTIONANDING.BI_DIM_RANGO_ETARIO r ON r.rango_etario_id = p.pago_rango_etario
+WHERE p.pago_cuotas <> 0
+GROUP BY
+    r.rango_etario_id
+    ,r.descripcion
+GO
 
 /***************
     VISTA 12
 ****************/
 
--- Fin crear Views
+CREATE VIEW BI_GESTIONANDING.PORC_DESC_APLIC_X_MEDIO_PAGO
+AS
+SELECT
+    mp.descripcion AS medio_pago,
+    t.anio,
+    t.cuatrimestre,
+    CAST(100 * SUM(p.sum_descuentos)/SUM(p.sum_descuentos+p.sum_importe) AS DECIMAL(5,2)) AS porcentaje
+FROM BI_GESTIONANDING.BI_FACT_PAGO p
+JOIN BI_GESTIONANDING.BI_DIM_MEDIO_PAGO mp ON mp.medio_pago_id = p.pago_medio_pago
+JOIN BI_GESTIONANDING.BI_DIM_TIEMPO t ON t.tiempo_id = p.pago_tiempo
+GROUP BY
+    mp.medio_pago_id,
+    mp.descripcion,
+    t.anio,
+    t.cuatrimestre
+GO
 
+-- Fin crear Views
 COMMIT
 GO
